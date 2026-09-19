@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: Warehouse Management API
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      responses:
+        '200': { description: Short-lived access token and rotated refresh credential }
+        '401': { $ref: '#/components/responses/Problem' }
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      responses:
+        '200': { description: Rotated token pair }
+        '401': { $ref: '#/components/responses/Problem' }
+  /me:
+    get:
+      operationId: getCurrentPrincipal
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Current identity and scopes }
+  /warehouses:
+    get:
+      operationId: listWarehouses
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Warehouses within the principal scope }
+  /locations:
+    get:
+      operationId: listLocations
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Location hierarchy within scope }
+    post:
+      operationId: createLocation
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Location created }
+  /products:
+    get:
+      operationId: listProducts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Products and barcode aliases }
+    post:
+      operationId: createProduct
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Product created atomically with aliases }
+  /products/{productId}/serials:
+    post:
+      operationId: createSerialItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Serialized physical item created }
+  /users:
+    get:
+      operationId: listUsers
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Organization users and role scopes }
+    post:
+      operationId: createUser
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: User created }
+  /roles:
+    get:
+      operationId: listRoles
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Roles and permissions }
+    post:
+      operationId: createRole
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Role created }
+  /users/{userId}/roles:
+    post:
+      operationId: assignUserRole
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Warehouse-scoped or organization-wide role assigned }
+  /devices:
+    get:
+      operationId: listDevices
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Registered devices }
+    post:
+      operationId: createDevice
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Device provisioned }
+  /devices/{deviceId}/revoke:
+    post:
+      operationId: revokeDevice
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Device and refresh sessions revoked }
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: Service health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+  /health/ready:
+    get:
+      operationId: readiness
+      responses:
+        '200': { description: API and database are ready }
+        '503': { description: A required dependency is unavailable }
+  /audit-events:
+    get:
+      operationId: listAuditEvents
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Organization-scoped append-only audit events }
+  /scan/resolve:
+    post:
+      operationId: resolveScan
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organizationId, code]
+              properties:
+                organizationId: { type: string, format: uuid }
+                code: { type: string, minLength: 1 }
+      responses:
+        '200': { description: Resolved product or serial }
+        '404': { $ref: '#/components/responses/Problem' }
+  /inventory/movements:
+    get:
+      operationId: listMovements
+      responses:
+        '200': { description: Movement timeline }
+    post:
+      operationId: createMovement
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MovementCommand' }
+      responses:
+        '201': { description: Movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /inventory/balances:
+    get:
+      operationId: listBalances
+      responses:
+        '200': { description: Current projection }
+  /sync/commands:
+    post:
+      operationId: submitSyncCommands
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { description: Stable per-command results }
+  /sync/status/{idempotencyKey}:
+    get:
+      operationId: syncStatus
+      parameters:
+        - name: idempotencyKey
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Command result }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+  schemas:
+    MovementCommand:
+      type: object
+      required:
+        [
+          organizationId,
+          productId,
+          sourceLocationId,
+          destinationLocationId,
+          quantity,
+          reasonCode,
+          deviceId,
+          clientOccurredAt,
+        ]
+      properties:
+        organizationId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        serialItemId: { type: string, format: uuid }
+        sourceLocationId: { type: string, format: uuid }
+        destinationLocationId: { type: string, format: uuid }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        reasonCode: { type: string }
+        referenceType: { type: string }
+        referenceId: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        clientOccurredAt: { type: string, format: date-time }
+        aggregateVersion: { type: integer, minimum: 0 }
+  responses:
+    Problem:
+      description: RFC 9457 problem detail
