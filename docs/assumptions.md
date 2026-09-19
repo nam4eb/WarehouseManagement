@@ -11,3 +11,7 @@
 - UTC is stored in PostgreSQL; device time is evidence, not transaction ordering authority.
 - JWT plumbing and full identity flows will be completed with the first admin/mobile client; Phase 1
   lays down users, roles, permissions, devices, and backend authorization boundaries.
+- MVP bundle compatibility uses an explicit bundle-to-component SKU mapping with one unique
+  component role (for example `INDOOR` or `OUTDOOR`) per bundle. Attribute-driven substitution of
+  alternative component SKUs is deferred; scanning a serial from any SKU outside the fixed mapping
+  is rejected by the picking line and serial-product invariant.

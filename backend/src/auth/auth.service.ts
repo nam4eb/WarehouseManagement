@@ -12,7 +12,10 @@ interface PrincipalRow {
   device_id: string;
   device_revoked_at: Date | null;
   permissions: string[];
+  roles: string[];
   warehouse_ids: string[];
+  display_name: string;
+  email: string;
 }
 
 @Injectable()
@@ -29,12 +32,14 @@ export class AuthService {
     deviceFingerprint: string;
   }) {
     const principal = await this.pool.query<PrincipalRow>(
-      `SELECT u.id user_id,u.organization_id,u.password_hash,d.id device_id,d.revoked_at device_revoked_at,
+      `SELECT u.id user_id,u.organization_id,u.password_hash,u.display_name,u.email,d.id device_id,d.revoked_at device_revoked_at,
        COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.code IS NOT NULL),'{}') permissions,
+       COALESCE(array_agg(DISTINCT r.code) FILTER (WHERE r.code IS NOT NULL),'{}') roles,
        COALESCE(array_agg(DISTINCT COALESCE(ur.warehouse_id::text,'*')) FILTER (WHERE ur.id IS NOT NULL),'{}') warehouse_ids
        FROM users u JOIN organizations o ON o.id=u.organization_id
        JOIN devices d ON d.user_id=u.id AND d.fingerprint=$3
-       LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN role_permissions rp ON rp.role_id=ur.role_id
+       LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id
+       LEFT JOIN role_permissions rp ON rp.role_id=ur.role_id
        LEFT JOIN permissions p ON p.id=rp.permission_id
        WHERE o.code=$1 AND lower(u.email)=lower($2) AND u.active=true
        GROUP BY u.id,d.id`,
@@ -81,11 +86,13 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token reuse detected');
       }
       const principal = await client.query<PrincipalRow>(
-        `SELECT u.id user_id,u.organization_id,u.password_hash,d.id device_id,d.revoked_at device_revoked_at,
+        `SELECT u.id user_id,u.organization_id,u.password_hash,u.display_name,u.email,d.id device_id,d.revoked_at device_revoked_at,
          COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.code IS NOT NULL),'{}') permissions,
+         COALESCE(array_agg(DISTINCT r.code) FILTER (WHERE r.code IS NOT NULL),'{}') roles,
          COALESCE(array_agg(DISTINCT COALESCE(ur.warehouse_id::text,'*')) FILTER (WHERE ur.id IS NOT NULL),'{}') warehouse_ids
          FROM users u JOIN devices d ON d.id=$2 AND d.user_id=u.id
-         LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN role_permissions rp ON rp.role_id=ur.role_id
+         LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id
+         LEFT JOIN role_permissions rp ON rp.role_id=ur.role_id
          LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 AND u.active=true GROUP BY u.id,d.id`,
         [locked.user_id, locked.device_id],
       );
@@ -126,7 +133,10 @@ export class AuthService {
         organizationId: row.organization_id,
         deviceId: row.device_id,
         permissions: row.permissions,
+        roles: row.roles,
         warehouseIds: row.warehouse_ids,
+        displayName: row.display_name,
+        email: row.email,
       }),
       refreshToken: refresh.token,
       expiresIn: 900,

@@ -86,6 +86,32 @@ suite('PostgreSQL movement transaction', () => {
     expect(Number(balance.rows[0].quantity)).toBe(25);
   });
 
+  it('rejects a movement for a serial-controlled product when serial identity is omitted', async () => {
+    const idempotencyKey = randomUUID();
+    await expect(
+      ledger.execute({
+        idempotencyKey,
+        organizationId: ids.org,
+        productId: ids.serialProduct,
+        sourceLocationId: ids.supplier,
+        destinationLocationId: ids.receiving,
+        quantity: 1,
+        reasonCode: 'RECEIPT',
+        actorId: ids.user,
+        deviceId: ids.device,
+        clientOccurredAt: new Date().toISOString(),
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow('SERIAL_REQUIRED');
+    const residue = await pool.query(
+      `SELECT
+       (SELECT count(*) FROM sync_commands WHERE organization_id=$1 AND idempotency_key=$2)::int commands,
+       (SELECT count(*) FROM stock_movements WHERE organization_id=$1 AND product_id=$3 AND serial_item_id IS NULL)::int movements`,
+      [ids.org, idempotencyKey, ids.serialProduct],
+    );
+    expect(residue.rows[0]).toEqual({ commands: 0, movements: 0 });
+  });
+
   it('allows only one of two concurrent moves for the same serial', async () => {
     await pool.query(
       `INSERT INTO serial_items(id,organization_id,product_id,serial_number,current_location_id)

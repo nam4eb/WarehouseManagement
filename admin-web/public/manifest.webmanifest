@@ -1,0 +1,17 @@
+{
+  "name": "WMS Driver",
+  "short_name": "WMS Driver",
+  "description": "Ứng dụng giao nhận ngoại tuyến cho tài xế",
+  "start_url": "/driver",
+  "display": "standalone",
+  "background_color": "#f4f6f2",
+  "theme_color": "#155e4b",
+  "icons": [
+    {
+      "src": "/wms-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

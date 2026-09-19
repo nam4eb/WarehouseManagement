@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/admin/page": "/admin",
+  "/dispatch/page": "/dispatch",
+  "/driver/page": "/driver",
+  "/login/page": "/login",
+  "/page": "/",
+  "/picking/page": "/picking",
+  "/products/page": "/products",
+  "/receipts/page": "/receipts",
+  "/reports/page": "/reports",
+  "/trips/page": "/trips"
+}

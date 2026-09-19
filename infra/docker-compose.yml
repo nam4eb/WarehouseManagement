@@ -1,5 +1,26 @@
 name: wms-local
 services:
+  admin-web:
+    build:
+      context: ..
+      dockerfile: admin-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3100}/api/v1
+    ports: ['${ADMIN_WEB_PORT:-3200}:3000']
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   api:
     build:
       context: ..
@@ -10,6 +31,7 @@ services:
       DATABASE_URL: postgresql://wms:wms@postgres:5432/wms
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT:-59000}
       S3_REGION: us-east-1
       S3_BUCKET: wms-attachments
       S3_ACCESS_KEY: minio
@@ -17,6 +39,7 @@ services:
       JWT_ACCESS_SECRET: local-compose-access-secret-change-me
       JWT_REFRESH_SECRET: local-compose-refresh-secret-change-me
       DEMO_ADMIN_PASSWORD: Demo-Wms-Change-Me-2026!
+      CORS_ORIGINS: http://localhost:${ADMIN_WEB_PORT:-3200}
     command:
       [
         '/bin/sh',

@@ -3,7 +3,10 @@ export interface AccessClaims {
   organizationId: string;
   deviceId: string;
   permissions: string[];
+  roles: string[];
   warehouseIds: string[];
+  displayName: string;
+  email: string;
   type: 'access';
 }
 

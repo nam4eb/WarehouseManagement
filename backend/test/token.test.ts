@@ -11,7 +11,10 @@ describe('token service', () => {
       organizationId: 'org',
       deviceId: 'device',
       permissions: ['inventory.move'],
+      roles: ['WAREHOUSE_MANAGER'],
       warehouseIds: ['warehouse'],
+      displayName: 'Warehouse Manager',
+      email: 'manager@example.com',
     });
     const decoded = jwt.verify(token, accessSecret(), {
       issuer: 'wms-api',

@@ -6,6 +6,9 @@ import { DatabaseExceptionFilter } from './http/database-exception.filter.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: (process.env.CORS_ORIGINS ?? 'http://localhost:3200').split(','),
+  });
   app.useGlobalFilters(new DatabaseExceptionFilter());
   app.setGlobalPrefix('api/v1');
   const document = SwaggerModule.createDocument(app, {

@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 
 interface HttpResponse {
   status(code: number): { json(body: unknown): void };
@@ -11,6 +18,8 @@ interface DatabaseError {
 
 @Catch()
 export class DatabaseExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(DatabaseExceptionFilter.name);
+
   catch(error: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<HttpResponse>();
     if (error instanceof HttpException) {
@@ -35,6 +44,7 @@ export class DatabaseExceptionFilter implements ExceptionFilter {
       });
       return;
     }
+    this.logger.error(error instanceof Error ? error.stack : String(error));
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       code: 'INTERNAL_ERROR',

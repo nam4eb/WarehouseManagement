@@ -5,6 +5,11 @@ import type { MovementCommand, StockMovement } from './domain.js';
 import { validateMovement } from './domain.js';
 import { payloadHash } from './ledger.js';
 
+export interface MovementTransactionHooks {
+  validate?: (client: pg.PoolClient) => Promise<void>;
+  afterMovement?: (client: pg.PoolClient, movement: StockMovement) => Promise<void>;
+}
+
 @Injectable()
 export class PostgresMovementLedger {
   constructor(@Inject(DATABASE_POOL) private readonly pool: pg.Pool) {}
@@ -45,7 +50,10 @@ export class PostgresMovementLedger {
     return result.rows;
   }
 
-  async execute(command: MovementCommand): Promise<StockMovement> {
+  async execute(
+    command: MovementCommand,
+    hooks: MovementTransactionHooks = {},
+  ): Promise<StockMovement> {
     validateMovement(command);
     const client = await this.pool.connect();
     try {
@@ -84,6 +92,18 @@ export class PostgresMovementLedger {
         await client.query('COMMIT');
         return this.mapRow(existing.rows[0]!);
       }
+
+      await hooks.validate?.(client);
+
+      const product = await client.query<{ serial_required: boolean }>(
+        `SELECT serial_required FROM products WHERE id=$1 AND organization_id=$2 FOR SHARE`,
+        [command.productId, command.organizationId],
+      );
+      if (!product.rows[0]) throw new ConflictException('PRODUCT_NOT_FOUND');
+      if (product.rows[0].serial_required && !command.serialItemId)
+        throw new ConflictException('SERIAL_REQUIRED');
+      if (!product.rows[0].serial_required && command.serialItemId)
+        throw new ConflictException('SERIAL_NOT_ALLOWED');
 
       if (command.serialItemId) {
         const serial = await client.query<{ product_id: string; current_location_id: string }>(
@@ -166,6 +186,7 @@ export class PostgresMovementLedger {
           'UPDATE serial_items SET current_location_id=$2,version=version+1 WHERE id=$1',
           [command.serialItemId, command.destinationLocationId],
         );
+      await hooks.afterMovement?.(client, result);
       await client.query(
         `INSERT INTO audit_events(organization_id,actor_id,action,entity_type,entity_id,data,correlation_id)
          VALUES($1,$2,'inventory.moved','stock_movement',$3,$4,$5)`,

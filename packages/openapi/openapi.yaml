@@ -62,6 +62,18 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '201': { description: Serialized physical item created }
+  /products/{productId}/components:
+    post:
+      operationId: addBundleComponent
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Fixed compatible component role added to bundle }
+        '409': { $ref: '#/components/responses/Problem' }
   /users:
     get:
       operationId: listUsers
@@ -142,6 +154,296 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: Organization-scoped append-only audit events }
+  /receipts:
+    get:
+      operationId: listReceipts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Receipts with expected, actual, and variance quantities }
+    post:
+      operationId: createReceipt
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Draft receipt created }
+  /receipts/{receiptId}/scan:
+    post:
+      operationId: receiveReceiptScan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: receiptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Supplier-to-receiving movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /receipts/{receiptId}/confirm:
+    post:
+      operationId: confirmReceipt
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: receiptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Receipt confirmed }
+  /receipts/{receiptId}/put-away:
+    post:
+      operationId: putAwayReceiptStock
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: receiptId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Receiving-to-rack movement committed }
+  /sales-orders:
+    post:
+      operationId: createSalesOrder
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Sales order and picking task created atomically }
+  /picking-tasks:
+    get:
+      operationId: listPickingTasks
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Picking tasks with required and picked quantities }
+  /picking-tasks/{taskId}/scan:
+    post:
+      operationId: scanPickingItem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Rack-to-staging movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /picking-tasks/{taskId}/complete:
+    post:
+      operationId: completePickingTask
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Picking task completed after exact quantity validation }
+  /trips:
+    get:
+      operationId: listTrips
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          {
+            description: Trips with manifest custody totals plus product and customer display data for driver clients,
+          }
+    post:
+      operationId: createTrip
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Trip and immutable picking-task manifest created }
+  /trips/{tripId}/load:
+    post:
+      operationId: loadTrip
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Staging-to-trip custody movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/depart:
+    post:
+      operationId: departTrip
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Fully loaded trip departed }
+  /trips/{tripId}/deliver:
+    post:
+      operationId: deliverTripStock
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Trip-to-customer custody movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/return:
+    post:
+      operationId: returnTripStock
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201': { description: Trip-to-quarantine custody movement committed }
+        '409': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/reconcile:
+    post:
+      operationId: reconcileTrip
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Trip completed or flagged with unresolved custody }
+  /trips/{tripId}/proof-upload-url:
+    post:
+      operationId: createProofUploadUrl
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Five-minute MinIO-compatible presigned image upload URL }
+  /trips/{tripId}/proof:
+    post:
+      operationId: recordDeliveryProof
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          {
+            description: Verified stop-specific proof-of-delivery metadata recorded with audit event,
+          }
+        '400': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/stops/{customerLocationId}/exception:
+    post:
+      operationId: recordDeliveryStopException
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: customerLocationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201': { description: Audited stop-level failed or partial delivery reason recorded }
+        '400': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/approve-exception:
+    post:
+      operationId: approveTripException
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          {
+            description: Supervisor approval records the unresolved custody snapshot and closes with exception,
+          }
+        '409': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/stops:
+    put:
+      operationId: reorderTripStops
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Complete ordered customer location list saved for the trip }
+        '400': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/stops/{customerLocationId}/schedule:
+    put:
+      operationId: scheduleTripStop
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Stop appointment window updated with audit evidence }
+        '400': { $ref: '#/components/responses/Problem' }
+  /trips/{tripId}/assignment:
+    put:
+      operationId: assignTripDriverAndVehicle
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Driver and vehicle assignment changed with immutable history }
+        '400': { $ref: '#/components/responses/Problem' }
+  /reports/operations:
+    get:
+      operationId: getOperationsReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200': { description: Warehouse-scoped operations and throughput metrics }
+        '400': { $ref: '#/components/responses/Problem' }
+  /reports/dispatch:
+    get:
+      operationId: getDispatchMonitor
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Warehouse-scoped overdue stops, unresolved outcomes and trip custody }
+  /reports/dispatch-resources:
+    get:
+      operationId: getDispatchResources
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Active driver and vehicle candidates with current workload counts }
+  /outbox/status:
+    get:
+      operationId: getOutboxStatus
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          {
+            description: Organization-scoped pending,
+            published,
+            retry and dead-letter delivery metrics,
+          }
+  /alerts:
+    get:
+      operationId: listOperationalAlerts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Organization and warehouse-scoped operational alerts }
+  /alerts/{alertId}/acknowledge:
+    post:
+      operationId: acknowledgeOperationalAlert
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Alert acknowledged with operator note and audit evidence }
   /scan/resolve:
     post:
       operationId: resolveScan
